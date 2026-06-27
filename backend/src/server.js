@@ -154,6 +154,11 @@ function buildContentDisposition(mode, fileName) {
   return `${mode}; filename="${safeName}"`;
 }
 
+function getRouteBlobName(req) {
+  const rawBlobName = req.params.blobName || req.params[0] || '';
+  return decodeURIComponent(rawBlobName);
+}
+
 async function streamProjectFileResponse(req, res, next, projectId, blobName, mode) {
   try {
     const file = await getProjectFileDelivery(projectId, blobName, getTenantContext(req));
@@ -226,9 +231,9 @@ app.post('/api/files', upload.single('file'), async (req, res, next) => {
   }
 });
 
-app.get('/api/files/:blobName/sas', async (req, res, next) => {
+app.get('/api/files/*/sas', async (req, res, next) => {
   try {
-    const blobName = decodeURIComponent(req.params.blobName);
+    const blobName = getRouteBlobName(req);
     const minutes = parsePositiveInt(req.query.minutes, 15, 1, 1440);
     res.json(attachPublicBaseUrl({ url: createReadSasUrl(blobName, minutes), expiresInMinutes: minutes }, getPublicBaseUrl(req)));
   } catch (error) {
@@ -236,9 +241,9 @@ app.get('/api/files/:blobName/sas', async (req, res, next) => {
   }
 });
 
-app.delete('/api/files/:blobName', async (req, res, next) => {
+app.delete('/api/files/*', async (req, res, next) => {
   try {
-    await deleteFile(decodeURIComponent(req.params.blobName));
+    await deleteFile(getRouteBlobName(req));
     res.status(204).send();
   } catch (error) {
     next(error);
@@ -359,10 +364,10 @@ app.post('/api/projects/:projectId/files', upload.single('file'), async (req, re
   }
 });
 
-app.get('/api/projects/:projectId/files/:blobName/sas', async (req, res, next) => {
+app.get('/api/projects/:projectId/files/*/sas', async (req, res, next) => {
   try {
     const projectId = decodeURIComponent(req.params.projectId);
-    const blobName = decodeURIComponent(req.params.blobName);
+    const blobName = getRouteBlobName(req);
     const minutes = parsePositiveInt(req.query.minutes, 15, 1, 1440);
     const [url, downloadUrl] = await Promise.all([
       createProjectReadSasUrl(projectId, blobName, minutes, getTenantContext(req)),
@@ -374,22 +379,22 @@ app.get('/api/projects/:projectId/files/:blobName/sas', async (req, res, next) =
   }
 });
 
-app.get('/api/projects/:projectId/files/:blobName/view', async (req, res, next) => {
+app.get('/api/projects/:projectId/files/*/view', async (req, res, next) => {
   const projectId = decodeURIComponent(req.params.projectId);
-  const blobName = decodeURIComponent(req.params.blobName);
+  const blobName = getRouteBlobName(req);
   return streamProjectFileResponse(req, res, next, projectId, blobName, 'inline');
 });
 
-app.get('/api/projects/:projectId/files/:blobName/download', async (req, res, next) => {
+app.get('/api/projects/:projectId/files/*/download', async (req, res, next) => {
   const projectId = decodeURIComponent(req.params.projectId);
-  const blobName = decodeURIComponent(req.params.blobName);
+  const blobName = getRouteBlobName(req);
   return streamProjectFileResponse(req, res, next, projectId, blobName, 'attachment');
 });
 
-app.delete('/api/projects/:projectId/files/:blobName', async (req, res, next) => {
+app.delete('/api/projects/:projectId/files/*', async (req, res, next) => {
   try {
     const projectId = decodeURIComponent(req.params.projectId);
-    const blobName = decodeURIComponent(req.params.blobName);
+    const blobName = getRouteBlobName(req);
     await deleteProjectFile(projectId, blobName, getTenantContext(req));
     res.status(204).send();
   } catch (error) {
