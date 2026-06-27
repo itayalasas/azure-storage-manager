@@ -1,0 +1,16 @@
+services:
+  api:
+    build: ./backend
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./backend/.env
+  web:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: http://localhost:3000
+    ports:
+      - "5175:80"
+    depends_on:
+      - api
