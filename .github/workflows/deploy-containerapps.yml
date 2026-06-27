@@ -59,14 +59,29 @@ jobs:
       - name: Install Container Apps extension
         run: az extension add --name containerapp --upgrade
 
+      - name: Debug Azure context
+        run: |
+          az account show -o table
+          echo "RESOURCE_GROUP=$RESOURCE_GROUP"
+          echo "ACR_NAME=$ACR_NAME"
+          echo "API_APP_NAME=$API_APP_NAME"
+          echo "WEB_APP_NAME=$WEB_APP_NAME"
+          az acr list --query "[].{name:name,resourceGroup:resourceGroup,loginServer:loginServer}" -o table
+
       - name: Resolve Azure targets
         id: azure
         run: |
-          ACR_LOGIN_SERVER=$(az acr show --name "$ACR_NAME" --query loginServer -o tsv)
+          ACR_LOGIN_SERVER=$(az acr show \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "$ACR_NAME" \
+            --query loginServer \
+            -o tsv)
+
           API_FQDN=$(az containerapp show \
             --resource-group "$RESOURCE_GROUP" \
             --name "$API_APP_NAME" \
-            --query properties.configuration.ingress.fqdn -o tsv)
+            --query properties.configuration.ingress.fqdn \
+            -o tsv)
 
           echo "acr_login_server=$ACR_LOGIN_SERVER" >> "$GITHUB_OUTPUT"
           echo "api_base_url=https://$API_FQDN" >> "$GITHUB_OUTPUT"
@@ -75,6 +90,7 @@ jobs:
         run: |
           az acr build \
             --registry "$ACR_NAME" \
+            --resource-group "$RESOURCE_GROUP" \
             --image "${BACKEND_IMAGE}:${GITHUB_SHA}" \
             "$GITHUB_WORKSPACE/backend"
 
@@ -89,6 +105,7 @@ jobs:
         run: |
           az acr build \
             --registry "$ACR_NAME" \
+            --resource-group "$RESOURCE_GROUP" \
             --image "${FRONTEND_IMAGE}:${GITHUB_SHA}" \
             --build-arg VITE_API_URL="${{ steps.azure.outputs.api_base_url }}" \
             "$GITHUB_WORKSPACE/frontend"
@@ -105,11 +122,14 @@ jobs:
           API_URL=$(az containerapp show \
             --resource-group "$RESOURCE_GROUP" \
             --name "$API_APP_NAME" \
-            --query properties.configuration.ingress.fqdn -o tsv)
+            --query properties.configuration.ingress.fqdn \
+            -o tsv)
+
           WEB_URL=$(az containerapp show \
             --resource-group "$RESOURCE_GROUP" \
             --name "$WEB_APP_NAME" \
-            --query properties.configuration.ingress.fqdn -o tsv)
+            --query properties.configuration.ingress.fqdn \
+            -o tsv)
 
           echo "API: https://$API_URL"
           echo "WEB: https://$WEB_URL"
